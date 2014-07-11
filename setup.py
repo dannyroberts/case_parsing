@@ -11,9 +11,10 @@ setup(
     install_requires=[
         'iso8601',
         'jsonobject',
+        'xml2json==0.0.0',
     ],
     dependency_links=[
-        'git+https://github.com/dimagi/xml2json#egg=xml2json==0.0.0',
+        'git+https://github.com/dimagi/xml2json#egg=xml2json-0.0.0',
     ],
     tests_require=['unittest2', 'nose'],
     test_suite='test',

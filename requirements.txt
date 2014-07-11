@@ -1,5 +1,0 @@
--e git+https://github.com/dimagi/xml2json.git#egg=xml2json
-iso8601
-jsonobject
-unittest2
-nose
