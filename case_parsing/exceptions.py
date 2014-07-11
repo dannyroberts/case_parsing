@@ -1,0 +1,2 @@
+class CaseParsingException(Exception):
+    pass
