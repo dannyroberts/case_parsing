@@ -1,9 +1,10 @@
+from .exceptions import CreateCaseError, CaseIdError, CloseCaseError
 from jsonobject import (
     DictProperty,
     JsonObject,
     ObjectProperty,
     StringProperty,
-)
+    BooleanProperty)
 
 from .const import CASEXML_XMLNS
 from .jsonobject_extensions import Base64Property, ISO8601Property
@@ -24,9 +25,9 @@ class CreateBlock(StrictJsonObject):
 
     """
 
-    case_type = StringProperty()
+    case_type = StringProperty(required=True)
     owner_id = StringProperty()
-    case_name = StringProperty()
+    case_name = StringProperty(required=True)
 
 
 class UpdateBlock(StrictJsonObject):
@@ -43,11 +44,11 @@ class UpdateBlock(StrictJsonObject):
 
     _allow_dynamic_properties = True
 
-    case_type = StringProperty()
-    case_name = StringProperty()
+    case_type = StringProperty(exclude_if_none=True)
+    case_name = StringProperty(exclude_if_none=True)
     # why is this even a thing you'd want to modify?
-    date_opened = StringProperty()
-    owner_id = StringProperty()
+    date_opened = ISO8601Property(exclude_if_none=True)
+    owner_id = StringProperty(exclude_if_none=True)
 
 
 class IndexItem(StrictJsonObject):
@@ -112,12 +113,105 @@ class CaseBlock(StrictJsonObject):
     user_id = StringProperty(name='@user_id')
     date_modified = ISO8601Property(name='@date_modified', required=True)
     create = ObjectProperty(CreateBlock, default=None)
-    update = ObjectProperty(UpdateBlock, default=None)
+    # update has four semantically relevant properties:
+    # case_type, case_name, date_opened, owner_id
+    update = ObjectProperty(UpdateBlock)
     index = DictProperty(IndexItem)
     attachment = DictProperty(AttachmentItem)
     close_ = StringProperty(name='close', choices=[u''])
 
-    @property
-    def close(self):
+    def _get_close(self):
         assert self.close_ in ('', None)
         return self.close_ == ''
+
+    def _set_close(self, close):
+        assert isinstance(close, bool)
+        self.close_ = '' if close else None
+
+    close = property(_get_close, _set_close)
+
+
+class CaseDelta(StrictJsonObject):
+    case_id = StringProperty(required=True)
+    date_modified = ISO8601Property(required=True)
+    create = BooleanProperty(required=True)
+    close = BooleanProperty(required=True)
+
+    # updatable properties
+    SPECIAL_PROPERTIES = ('case_type', 'case_name', 'date_opened', 'owner_id')
+    case_type = StringProperty()
+    case_name = StringProperty()
+    date_opened = ISO8601Property()
+    owner_id = StringProperty()
+
+    update = DictProperty(basestring)
+    index = DictProperty(IndexItem)
+    # todo: need to deal with attachments in a way
+    # todo: that includes access to the context in the case of from="local"
+    attachment = DictProperty(AttachmentItem)
+
+    @classmethod
+    def from_case_block(cls, case_block):
+        assert isinstance(case_block, CaseBlock)
+        b = case_block
+
+        def extract_special(name):
+            value = getattr(b.update, name, None)
+            if value is not None:
+                return value
+            if b.create:
+                value = getattr(b.create, name, None)
+            return value
+
+        self = cls(
+            case_id=b.case_id,
+            date_modified=b.date_modified,
+            create=bool(b.create),
+            close=b.close,
+
+            case_type=extract_special('case_type'),
+            owner_id=extract_special('owner_id'),
+            case_name=extract_special('case_name'),
+            date_opened=(getattr(b.update, 'date_opened', None)
+                         or (b.date_modified if b.create else None)),
+        )
+        if b.update:
+            self.update.update({
+                attr: b.update[attr] for attr in b.update.keys()
+                if attr not in self.SPECIAL_PROPERTIES
+            })
+
+        if b.index:
+            self.index.update(b.index)
+
+        if b.attachment:
+            self.attachment.update(b.attachment)
+
+        return self
+
+    def __iadd__(self, other):
+        assert isinstance(other, CaseDelta)
+        if other.case_id != self.case_id:
+            raise CaseIdError()
+        if other.create:
+            raise CreateCaseError()
+        if self.close:
+            raise CloseCaseError()
+
+        self.date_modified = other.date_modified
+        self.close = other.close
+
+        # updatable properties
+        for attr in self.SPECIAL_PROPERTIES:
+            if getattr(other, attr) is not None:
+                setattr(self, attr, getattr(other, attr))
+
+        self.update.update(other.update)
+        self.index.update(other.index)
+        self.attachment.update(other.attachment)
+        return self
+
+    def __add__(self, other):
+        result = self.__class__.wrap(self.to_json())
+        result += other
+        return result

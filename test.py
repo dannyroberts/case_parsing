@@ -4,7 +4,8 @@ import unittest2
 
 from case_parsing.exceptions import CaseParsingException
 import xml2json
-from case_parsing import parse_casexml_json, CASEXML_XMLNS
+from case_parsing import parse_casexml_json, CASEXML_XMLNS, get_case_delta
+from case_parsing.models import CaseDelta
 
 
 CASE_XML_1 = """
@@ -22,8 +23,25 @@ CASE_XML_1 = """
  </case>
 """
 
+CASE_XML_1_DELTA = CaseDelta(
+    case_id='3F2504E04F8911D39A0C0305E82C3301',
+    create=True,
+    date_modified=datetime.datetime(2014, 1, 15, 18, 12, 33, 139000),
+
+    date_opened=datetime.datetime(2014, 1, 15, 18, 12, 33, 139000),
+    case_type='houshold_rollout_ONICAF',
+    case_name='Smith',
+    owner_id='9R3504E04F8911D39A0C0305E82C3301',
+    update={
+        'household_id': '24/F23/3',
+        'primary_contact_name': 'Tom Smith',
+        'visit_number': '1',
+    },
+    close=False,
+)
+
 CASE_XML_2 = """
-<case xmlns="http://commcarehq.org/case/transaction/v2" case_id="3F2504E04F8911D39A0C0305E82C3301" date_modified="2014-01-15T13:12:33.139-05" user_id="9R3504E04F8911D39A0C0305E82C3301">
+<case xmlns="http://commcarehq.org/case/transaction/v2" case_id="3F2504E04F8911D39A0C0305E82C3301" date_modified="2014-01-15T13:12:34.000-05" user_id="9R3504E04F8911D39A0C0305E82C3301">
     <update>
         <visit_number>2</visit_number>
         <my_date>2014-01-15T13:12:33.139-05</my_date>
@@ -31,11 +49,71 @@ CASE_XML_2 = """
 </case>
 """
 
+CASE_XML_2_DELTA = CaseDelta(
+    case_id='3F2504E04F8911D39A0C0305E82C3301',
+    create=False,
+    date_modified=datetime.datetime(2014, 1, 15, 18, 12, 34),
+
+    date_opened=None,
+    case_type=None,
+    case_name=None,
+    update={
+        'my_date': '2014-01-15T13:12:33.139-05',
+        'visit_number': '2',
+    },
+    close=False,
+)
+
+DELTA_1_PLUS_2 = CaseDelta(
+    case_id='3F2504E04F8911D39A0C0305E82C3301',
+    create=True,
+    date_modified=datetime.datetime(2014, 1, 15, 18, 12, 34),
+
+    date_opened=datetime.datetime(2014, 1, 15, 18, 12, 33, 139000),
+    case_type='houshold_rollout_ONICAF',
+    case_name='Smith',
+    owner_id='9R3504E04F8911D39A0C0305E82C3301',
+    update={
+        'household_id': '24/F23/3',
+        'primary_contact_name': 'Tom Smith',
+        'visit_number': '2',
+        'my_date': '2014-01-15T13:12:33.139-05',
+    },
+    close=False,
+)
+
+
 CASE_XML_3 = """
-<case xmlns="http://commcarehq.org/case/transaction/v2" case_id="3F2504E04F8911D39A0C0305E82C3301" user_id="9R3504E04F8911D39A0C0305E82C3301" date_modified="2014-01-15T13:12:33.139-05">
+<case xmlns="http://commcarehq.org/case/transaction/v2" case_id="3F2504E04F8911D39A0C0305E82C3301" user_id="9R3504E04F8911D39A0C0305E82C3301" date_modified="2014-01-15T13:12:35-05">
     <close/>
 </case>
 """
+
+CASE_XML_3_DELTA = CaseDelta(
+    case_id='3F2504E04F8911D39A0C0305E82C3301',
+    create=False,
+    date_modified=datetime.datetime(2014, 1, 15, 18, 12, 35),
+    close=True,
+)
+
+
+DELTA_1_PLUS_2_PLUS_3 = CaseDelta(
+    case_id='3F2504E04F8911D39A0C0305E82C3301',
+    create=True,
+    date_modified=datetime.datetime(2014, 1, 15, 18, 12, 35),
+
+    date_opened=datetime.datetime(2014, 1, 15, 18, 12, 33, 139000),
+    case_type='houshold_rollout_ONICAF',
+    case_name='Smith',
+    owner_id='9R3504E04F8911D39A0C0305E82C3301',
+    update={
+        'household_id': '24/F23/3',
+        'primary_contact_name': 'Tom Smith',
+        'visit_number': '2',
+        'my_date': '2014-01-15T13:12:33.139-05',
+    },
+    close=True,
+)
 
 NO_BODY = """
 <case xmlns="http://commcarehq.org/case/transaction/v2" case_id="3F2504E04F8911D39A0C0305E82C3301" user_id="9R3504E04F8911D39A0C0305E82C3301" date_modified="2014-01-15T13:12:33.139-05"/>
@@ -94,9 +172,11 @@ class BasicParsing(unittest2.TestCase):
         self.assertEqual(block.create.case_name, 'Smith')
         self.assertEqual(block.create.owner_id,
                          '9R3504E04F8911D39A0C0305E82C3301')
-        self.assertEqual(block.update.household_id, '24/F23/3')
-        self.assertEqual(block.update.primary_contact_name, 'Tom Smith')
-        self.assertEqual(block.update.visit_number, '1')
+        self.assertEqual(block.update.to_json(), {
+            'household_id': '24/F23/3',
+            'primary_contact_name': 'Tom Smith',
+            'visit_number': '1',
+        })
         self.assertFalse(block.close)
         self.assertEqual(len(block.index), 0)
         self.assertEqual(len(block.attachment), 0)
@@ -104,7 +184,11 @@ class BasicParsing(unittest2.TestCase):
     def test_case_xml_2(self):
         block = self._get_case_block(CASE_XML_2)
         # no conversions!
-        self.assertEqual(block.update.my_date, '2014-01-15T13:12:33.139-05')
+        self.assertEqual(block.update.to_json(), {
+            'my_date': '2014-01-15T13:12:33.139-05',
+            'visit_number': '2',
+        })
+        self.assertIsNone(block.create)
         self.assertFalse(block.close)
 
     def test_case_xml_3(self):
@@ -149,6 +233,95 @@ class BasicParsing(unittest2.TestCase):
         self.assertEqual(item.src, '1362686433763.jpg')
         self.assertEqual(item.src_type, 'local')
         self.assertEqual(item.data, None)
+
+    def test_case_delta_1(self):
+        block = self._get_case_block(CASE_XML_1)
+        delta = CaseDelta.from_case_block(block)
+        self.assertEqual(
+            delta.to_json(),
+            CASE_XML_1_DELTA.to_json(),
+        )
+
+    def test_case_delta_2(self):
+        block = self._get_case_block(CASE_XML_2)
+        delta = CaseDelta.from_case_block(block)
+        self.assertDictEqual(
+            delta.to_json(),
+            CASE_XML_2_DELTA.to_json(),
+        )
+
+    def test_case_delta_3(self):
+        block = self._get_case_block(CASE_XML_3)
+        delta = CaseDelta.from_case_block(block)
+        self.assertDictEqual(
+            delta.to_json(),
+            CASE_XML_3_DELTA.to_json(),
+        )
+
+    def test_case_delta_1_plus_2(self):
+        block1 = self._get_case_block(CASE_XML_1)
+        block2 = self._get_case_block(CASE_XML_2)
+        delta1 = CaseDelta.from_case_block(block1)
+        delta2 = CaseDelta.from_case_block(block2)
+        self.assertDictEqual(
+            (delta1 + delta2).to_json(),
+            DELTA_1_PLUS_2.to_json(),
+        )
+
+    def test_case_delta_1_plus_2_plus_3(self):
+        block1 = self._get_case_block(CASE_XML_1)
+        block2 = self._get_case_block(CASE_XML_2)
+        block3 = self._get_case_block(CASE_XML_3)
+        delta1 = CaseDelta.from_case_block(block1)
+        delta2 = CaseDelta.from_case_block(block2)
+        delta3 = CaseDelta.from_case_block(block3)
+        self.assertDictEqual(
+            (delta1 + delta2 + delta3).to_json(),
+            DELTA_1_PLUS_2_PLUS_3.to_json(),
+        )
+        self.assertDictEqual(
+            (delta1 + (delta2 + delta3)).to_json(),
+            DELTA_1_PLUS_2_PLUS_3.to_json(),
+        )
+        self.assertDictEqual(
+            ((delta1 + delta2) + delta3).to_json(),
+            DELTA_1_PLUS_2_PLUS_3.to_json(),
+        )
+
+
+class CaseDeltaTest(unittest2.TestCase):
+    maxDiff = None
+
+    def test_get_case_delta(self):
+        self.assertDictEqual(
+            get_case_delta("""
+            <case xmlns="http://commcarehq.org/case/transaction/v2"
+                  case_id="A" date_modified="2014-01-15T13:12:33.139-05"
+                  user_id="X">
+                <create>
+                    <owner_id>X</owner_id>
+                    <case_name>john</case_name>
+                    <case_type>test</case_type>
+                </create>
+                <update>
+                    <owner_id>Y</owner_id>
+                    <age>7</age>
+                    <date_opened>2013-01-01T12:00:00-05</date_opened>
+                </update>
+            </case>
+            """).to_json(),
+            CaseDelta(
+                create=True,
+                close=False,
+                case_id='A',
+                date_modified=datetime.datetime(2014, 1, 15, 18, 12, 33, 139000),
+                date_opened=datetime.datetime(2013, 1, 1, 17, 0, 0),
+                owner_id='Y',
+                case_name="john",
+                case_type='test',
+                update={'age': '7'}
+            ).to_json(),
+        )
 
 
 if __name__ == '__main__':
