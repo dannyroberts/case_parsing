@@ -9,7 +9,12 @@ from .const import CASEXML_XMLNS
 from .jsonobject_extensions import Base64Property, ISO8601Property
 
 
-class CreateBlock(JsonObject):
+class StrictJsonObject(JsonObject):
+    _allow_dynamic_properties = False
+    _string_conversions = ()
+
+
+class CreateBlock(StrictJsonObject):
     """
     <create>
         <case_type/> <!-- Exactly One: The ID for the type of case represented -->
@@ -18,14 +23,13 @@ class CreateBlock(JsonObject):
     </create>
 
     """
-    _allow_dynamic_properties = False
 
     case_type = StringProperty()
     owner_id = StringProperty()
     case_name = StringProperty()
 
 
-class UpdateBlock(JsonObject):
+class UpdateBlock(StrictJsonObject):
     """
     <update>
         <case_type/>   <!-- At Most One: Modifies the Case Type for the case -->
@@ -37,6 +41,8 @@ class UpdateBlock(JsonObject):
 
     """
 
+    _allow_dynamic_properties = True
+
     case_type = StringProperty()
     case_name = StringProperty()
     # why is this even a thing you'd want to modify?
@@ -44,7 +50,7 @@ class UpdateBlock(JsonObject):
     owner_id = StringProperty()
 
 
-class IndexItem(JsonObject):
+class IndexItem(StrictJsonObject):
     """
     <index>
          <* case_type="" relationship="" /> <!-- At least one: A named element who's value is a GUID referring to another element -->
@@ -63,7 +69,7 @@ class IndexItem(JsonObject):
     case_id = StringProperty(name='#text')
 
 
-class AttachmentItem(JsonObject):
+class AttachmentItem(StrictJsonObject):
     """
     <attachment>
             <* src="" from="" name=""/> <!-- At least one: A named element referring to an attachment. There are four valid states for this element.
@@ -85,7 +91,7 @@ class AttachmentItem(JsonObject):
     data = Base64Property(name='#text')
 
 
-class CaseBlock(JsonObject):
+class CaseBlock(StrictJsonObject):
     """
     <case xmlns="http://commcarehq.org/case/transaction/v2" case_id="" user_id="" date_modified="" >
        <!-- user_id - At Most One: the GUID of the user responsible for this transaction -->
@@ -99,7 +105,6 @@ class CaseBlock(JsonObject):
     </case>
 
     """
-    _allow_dynamic_properties = False
 
     xmlns = StringProperty(name='@xmlns', choices=[CASEXML_XMLNS],
                            required=True)

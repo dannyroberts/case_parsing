@@ -26,6 +26,7 @@ CASE_XML_2 = """
 <case xmlns="http://commcarehq.org/case/transaction/v2" case_id="3F2504E04F8911D39A0C0305E82C3301" date_modified="2014-01-15T13:12:33.139-05" user_id="9R3504E04F8911D39A0C0305E82C3301">
     <update>
         <visit_number>2</visit_number>
+        <my_date>2014-01-15T13:12:33.139-05</my_date>
     </update>
 </case>
 """
@@ -102,6 +103,8 @@ class BasicParsing(unittest2.TestCase):
 
     def test_case_xml_2(self):
         block = self._get_case_block(CASE_XML_2)
+        # no conversions!
+        self.assertEqual(block.update.my_date, '2014-01-15T13:12:33.139-05')
         self.assertFalse(block.close)
 
     def test_case_xml_3(self):
