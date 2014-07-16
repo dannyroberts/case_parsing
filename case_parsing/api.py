@@ -9,15 +9,18 @@ def parse_casexml_json(casexml_json):
     try:
         return CaseBlock(casexml_json)
     except (BadValueError, WrappingAttributeError) as e:
+        print casexml_json
         raise CaseParsingException(unicode(e))
 
 
 def parse_casexml_string(casexml_string):
-    return parse_casexml_json(xml2json.xml2json(casexml_string))
+    _, casexml_json = xml2json.xml2json(casexml_string)
+    return parse_casexml_json(casexml_json)
 
 
 def parse_casexml_etree(casexml_etree):
-    return parse_casexml_json(xml2json.convert_xml_to_json(casexml_etree))
+    _, casexml_json = xml2json.convert_xml_to_json(casexml_etree)
+    return parse_casexml_json(casexml_json)
 
 
 def parse_casexml(casexml):
