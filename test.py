@@ -5,7 +5,7 @@ import unittest2
 from case_parsing.exceptions import CaseParsingException
 import xml2json
 from case_parsing import parse_casexml_json, CASEXML_XMLNS, get_case_delta
-from case_parsing.models import CaseDelta
+from case_parsing.delta import CaseDelta
 
 
 CASE_XML_1 = """
@@ -236,7 +236,7 @@ class BasicParsing(unittest2.TestCase):
 
     def test_case_delta_1(self):
         block = self._get_case_block(CASE_XML_1)
-        delta = CaseDelta.from_case_block(block)
+        delta = block.to_case_delta()
         self.assertEqual(
             delta.to_json(),
             CASE_XML_1_DELTA.to_json(),
@@ -244,7 +244,7 @@ class BasicParsing(unittest2.TestCase):
 
     def test_case_delta_2(self):
         block = self._get_case_block(CASE_XML_2)
-        delta = CaseDelta.from_case_block(block)
+        delta = block.to_case_delta()
         self.assertDictEqual(
             delta.to_json(),
             CASE_XML_2_DELTA.to_json(),
@@ -252,7 +252,7 @@ class BasicParsing(unittest2.TestCase):
 
     def test_case_delta_3(self):
         block = self._get_case_block(CASE_XML_3)
-        delta = CaseDelta.from_case_block(block)
+        delta = block.to_case_delta()
         self.assertDictEqual(
             delta.to_json(),
             CASE_XML_3_DELTA.to_json(),
@@ -261,8 +261,8 @@ class BasicParsing(unittest2.TestCase):
     def test_case_delta_1_plus_2(self):
         block1 = self._get_case_block(CASE_XML_1)
         block2 = self._get_case_block(CASE_XML_2)
-        delta1 = CaseDelta.from_case_block(block1)
-        delta2 = CaseDelta.from_case_block(block2)
+        delta1 = block1.to_case_delta()
+        delta2 = block2.to_case_delta()
         self.assertDictEqual(
             (delta1 + delta2).to_json(),
             DELTA_1_PLUS_2.to_json(),
@@ -272,9 +272,9 @@ class BasicParsing(unittest2.TestCase):
         block1 = self._get_case_block(CASE_XML_1)
         block2 = self._get_case_block(CASE_XML_2)
         block3 = self._get_case_block(CASE_XML_3)
-        delta1 = CaseDelta.from_case_block(block1)
-        delta2 = CaseDelta.from_case_block(block2)
-        delta3 = CaseDelta.from_case_block(block3)
+        delta1 = block1.to_case_delta()
+        delta2 = block2.to_case_delta()
+        delta3 = block3.to_case_delta()
         self.assertDictEqual(
             (delta1 + delta2 + delta3).to_json(),
             DELTA_1_PLUS_2_PLUS_3.to_json(),

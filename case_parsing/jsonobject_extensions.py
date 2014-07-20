@@ -1,6 +1,6 @@
 import base64
 import iso8601
-from jsonobject import JsonProperty, DateTimeProperty
+from jsonobject import JsonProperty, DateTimeProperty, JsonObject
 
 
 class Base64Property(JsonProperty):
@@ -21,3 +21,8 @@ class ISO8601Property(DateTimeProperty):
     def wrap(self, obj):
         dt = iso8601.parse_date(obj)
         return dt.astimezone(iso8601.iso8601.UTC).replace(tzinfo=None)
+
+
+class StrictJsonObject(JsonObject):
+    _allow_dynamic_properties = False
+    _string_conversions = ()

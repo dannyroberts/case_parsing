@@ -1,13 +1,13 @@
 from jsonobject.exceptions import BadValueError, WrappingAttributeError
 
-from .models import CaseBlock, CaseDelta
+from .parsing import v2, abstract
 from .exceptions import CaseParsingException
 import xml2json
 
 
 def parse_casexml_json(casexml_json):
     try:
-        return CaseBlock(casexml_json)
+        return v2.CaseBlock(casexml_json)
     except (BadValueError, WrappingAttributeError) as e:
         print casexml_json
         raise CaseParsingException(unicode(e))
@@ -35,9 +35,9 @@ def parse_casexml(casexml):
 
 
 def get_case_delta(casexml):
-    if isinstance(casexml, CaseBlock):
+    if isinstance(casexml, abstract.CaseBlock):
         case_block = casexml
     else:
         case_block = parse_casexml(casexml)
 
-    return CaseDelta.from_case_block(case_block)
+    return case_block.to_case_delta()
